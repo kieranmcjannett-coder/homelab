@@ -1,14 +1,64 @@
 # Self-Hosted Media Server and Aggregation
 
+**97% Automated Setup** - Complete media stack deployment with a single command!
+
 Make sure to review everything here and if you have any issues please submit it as an issue. Also, we are more than open to any suggests or edits. Also, checkout the [Servarr Docker Setup](https://wiki.servarr.com/docker-guide) for more details on installing the stack.
 
-> [!CAUTION]
-> Some MAJOR Updates! Moved the VPN configuration and some of the env variables to a `.env` file. If you're watching the current live video it's a huge change. Will be uploading a new one in the next few days.
+> [!IMPORTANT]
+> **Quick Start - One Command Deployment**
+> ```bash
+> git clone https://github.com/kieranmcjannett-coder/homelab.git
+> cd homelab/media
+> ./deploy.sh --full
+> ```
+> The deploy script will:
+> - Prompt for credentials and settings (or use `--non-interactive` with env vars)
+> - Create data directory structure
+> - Generate all configuration files
+> - Start Docker containers
+> - Configure all services automatically
+>
+> **Total setup time: ~10 minutes** (mostly waiting for containers)
+
+> [!TIP]
+> **Deployment Options**
+> ```bash
+> ./deploy.sh                    # Base stack only (Arr apps + download clients)
+> ./deploy.sh --with-jellyfin    # Add Jellyfin, Jellyseerr, Jellystat
+> ./deploy.sh --with-vpn         # Add VPN (Gluetun)
+> ./deploy.sh --full             # Everything
+> ./deploy.sh --destroy          # Remove everything and start fresh
+> ```
+
+> [!NOTE]
+> **Migrating to a New Server?** See [docs/MIGRATION.md](docs/MIGRATION.md) for step-by-step instructions.
+
+## CLI Tool (YAMS-Style)
+
+We provide a simple CLI tool inspired by [YAMS](https://yams.media/) for easy management:
+
+```bash
+./yams --help           # Show all commands
+./yams status           # Show service status  
+./yams urls             # Show all service URLs
+./yams start [service]  # Start all or specific service
+./yams stop [service]   # Stop all or specific service
+./yams restart sonarr   # Restart specific service
+./yams check-vpn        # Verify VPN is working
+./yams scan-library     # Trigger Jellyfin library scan
+./yams fix-anime        # Run anime configuration
+./yams configure        # Run all configuration scripts
+./yams backup ~/backups # Backup configs
+./yams destroy          # Remove everything (with confirmation)
+```
 
 ## Navigation
 * [Apps](https://github.com/TechHutTV/homelab/tree/main/apps)
 * [Home Assistant](https://github.com/TechHutTV/homelab/tree/main/homeassistant)
 * [__Media Server__](https://github.com/TechHutTV/homelab/tree/main/media)
+  - [One-Command Deploy](#quick-start---one-command-deployment)
+  - [Migration Guide](docs/MIGRATION.md)
+  - [Automation Status](docs/AUTOMATION_STATUS.md)
   - [Companion Video](#companion-video)
     * [Updates Since Video Publish](#updates-since-video-publish)
   - [Media Server](#media-server)
@@ -134,6 +184,142 @@ wget https://github.com/TechHutTV/homelab/raw/refs/heads/main/media/compose.yaml
 ```
 Most of our editing is going to be done in the `.env` file. Here you change your `UID` and `GID`, timezone, and add all your VPN keys and info. You can also make edits to the `compose.yaml` file such as the mount point locations, for example, if you are using something other than `/data:/data` or even changing the docker network IP addresses for your services.
 
+### Automated Configuration Setup (Optional)
+To reduce manual configuration, you can use the provided seed config scripts:
+
+1. **Generate seed configs with your credentials:**
+   ```bash
+   # Copy credentials template and set your values
+   cp .config/.credentials.template .config/.credentials
+   nano .config/.credentials  # Set USERNAME and PASSWORD
+   
+   # Generate all seed configs
+   bash setup_seed_configs.sh
+   ```
+
+2. **Initialize configs and start services:**
+   ```bash
+   # Copy configs to service directories
+   bash init_configs.sh
+   
+   # Start all services
+   docker compose up -d
+   
+   # Configure NZBGet credentials and paths
+   bash configure_nzbget.sh
+   
+   # Configure Prowlarr with FlareSolverr proxy (for Cloudflare-protected indexers)
+   bash configure_prowlarr.sh
+   
+   # Connect Prowlarr to Sonarr/Radarr/Lidarr (syncs indexers automatically)
+   bash configure_prowlarr_apps.sh
+   
+   # Configure download clients (qBittorrent and NZBGet)
+   bash configure_download_clients.sh
+   
+   # Add root folders via API (wait for services to be ready)
+   bash add_root_folders.sh
+   ```
+
+3. **One-time qBittorrent setup:**
+   - Access qBittorrent at `localhost:8080` (or your configured port)
+   - Go to **Tools** → **Options** → **Web UI**
+   - Set your **Username** and **Password** from `.credentials`
+   - **Uncheck** "Bypass authentication for clients in whitelisted IP subnets"
+   - Click **Save**
+   
+   > **Note:** qBittorrent's password cannot be fully automated due to its internal PBKDF2 hashing. This is a one-time setup per deployment.
+
+4. **Access Arr apps:**
+   - Navigate to Sonarr/Radarr/Lidarr/Prowlarr
+   - Browser will prompt for Basic authentication
+   - Enter credentials from `.credentials` file
+   - Root folders are already configured automatically!
+
+**What gets automated:**
+- ✅ Download directories and paths pre-configured
+- ✅ Authentication configured on all Arr apps (Basic auth)
+- ✅ Root folders added automatically via API
+- ✅ API keys randomly generated
+- ✅ NZBGet credentials and paths configured automatically
+- ✅ Prowlarr configured with FlareSolverr proxy (for indexers without VPN)
+- ✅ Prowlarr apps (Sonarr/Radarr/Lidarr) connected automatically
+- ⚠️  qBittorrent password requires one-time WebUI setup
+
+**Skip automation?** You can still configure everything manually via each app's WebUI as described in the sections below.
+
+### Jellyfin Setup (Automated)
+
+After starting the Jellyfin container, run the automated setup script:
+
+```bash
+cd jellyfin
+bash configure_jellyfin.sh
+```
+
+**What gets automated:**
+- ✅ Server configuration (language, country, metadata preferences)
+- ✅ Admin user creation with credentials from `.credentials`
+- ✅ Startup wizard completion
+- ✅ Media library creation (TV Shows, Movies, Music) at `/data/shows`, `/data/movies`, `/data/music`
+- ✅ Authentication and access token generation
+
+Once complete, Jellyfin is ready at **http://localhost:8096** and will automatically display content downloaded by Sonarr/Radarr!
+
+**Manual Setup:** If you prefer manual configuration, visit http://localhost:8096 and follow the setup wizard. See [media/jellyfin/README.md](jellyfin/README.md) for detailed instructions.
+
+### Additional Services Setup
+
+After Jellyfin is configured, the companion services are automatically configured by running their scripts:
+
+**Automated setup included in `configure_jellyfin.sh`:**
+- Jellyseerr (request management)
+- Jellystat (statistics tracking)
+
+Or run them individually:
+
+```bash
+# Bazarr - Subtitle automation
+bash configure_bazarr.sh
+
+# Runs automatically with Jellyfin setup:
+cd jellyfin
+bash configure_jellyseerr.sh
+bash configure_jellystat.sh
+```
+
+**What gets automated:**
+- ✅ Bazarr connected to Sonarr/Radarr
+- ✅ Jellyseerr connected to Jellyfin + Sonarr + Radarr
+- ✅ Jellyfin API keys auto-generated for all services
+- ✅ All service integrations pre-configured
+
+**One-time manual steps (5 minutes):**
+
+1. **Bazarr** - Add subtitle providers:
+   - Go to http://localhost:6767
+   - Settings → Languages → Add English (or your preferred languages)
+   - Settings → Providers → Add OpenSubtitles (free with account), Subscene, or Addic7ed
+   - Bazarr will automatically download subtitles!
+
+2. **Jellystat** - Add server (API key auto-created):
+   - Go to http://localhost:3000
+   - Create account or sign in
+   - Add server with the API key shown in the script output
+   - View detailed viewing statistics!
+   ```bash
+   # This copies seed configs to service directories if they don't exist
+   bash init_configs.sh
+   ```
+
+This will:
+- Pre-configure qBittorrent with download paths and hashed WebUI password
+- Pre-configure NZBGet with download paths and credentials  
+- Pre-configure Arr apps (Sonarr/Radarr/Lidarr) to skip authentication wizard
+- Set authentication to "Disabled for Local Addresses" on all Arr apps
+
+After starting the stack, you'll still need to manually add root folders in each Arr app UI (Settings → Media Management → Root Folders).
+
 ## Gluetun VPN
 
 ### Setup and Configuration
@@ -153,7 +339,7 @@ nano .env
 ```
 ```bash
 # General UID/GIU and Timezone
-TZ=America/Los_Angeles
+TZ=Australia/Brisbane
 PUID=1000
 PGID=1000
 
@@ -301,7 +487,7 @@ __Solution #2:__ Another solution, that can be used in conjunction with __Soluti
     environment:
       - LOG_LEVEL=info
       - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
-      - TZ=America/Los_Angeles
+      - TZ=Australia/Brisbane
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

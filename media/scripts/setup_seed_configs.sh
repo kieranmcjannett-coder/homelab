@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# This script generates seeded config files for qBittorrent, NZBGet, and arr apps
+# using values from media/.config/.credentials and media/.env (for DATA_DIR).
+# It writes into media/.config/* and can optionally copy into live config dirs.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MEDIA_DIR="$(dirname "$SCRIPT_DIR")"
+CONFIG_DIR="$MEDIA_DIR/.config"
+CRED_FILE="$CONFIG_DIR/.credentials"
+ENV_FILE="$MEDIA_DIR/.env"
+
+if [[ ! -f "$CRED_FILE" ]]; then
+  echo "ERROR: Credentials file not found: $CRED_FILE" >&2
+  echo "Create it from template and set USERNAME and PASSWORD." >&2
+  exit 1
+fi
+
+# Load credentials
+source "$CRED_FILE"
+: "${USERNAME:?USERNAME missing in .credentials}"
+: "${PASSWORD:?PASSWORD missing in .credentials}"
+
+# Load DATA_DIR from .env if present
+DATA_DIR="/data"
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC2046
+  DATA_DIR=$(grep -E "^DATA_DIR=" "$ENV_FILE" | tail -n1 | cut -d'=' -f2)
+  DATA_DIR=${DATA_DIR:-/data}
+fi
+
+mkdir -p "$CONFIG_DIR/qbittorrent" "$CONFIG_DIR/nzbget" "$CONFIG_DIR/sonarr" "$CONFIG_DIR/radarr" "$CONFIG_DIR/lidarr" "$CONFIG_DIR/prowlarr" "$CONFIG_DIR/bazarr"
+
+# Generate PBKDF2 hash for qBittorrent password
+echo "Generating PBKDF2 hash for qBittorrent password..."
+QBIT_PASSWORD_HASH=$(python3 -c "
+import hashlib
+import secrets
+import base64
+
+password = '$PASSWORD'
+salt = secrets.token_bytes(16)
+iterations = 100000
+hash_obj = hashlib.pbkdf2_hmac('sha512', password.encode(), salt, iterations)
+salt_hex = salt.hex()
+hash_hex = hash_obj.hex()
+print(f'@ByteArray(PBKDF2:SHA512:{iterations}:{salt_hex}:{hash_hex})')
+")
+
+# Generate qBittorrent config with directories and WebUI creds
+cat > "$CONFIG_DIR/qbittorrent/qBittorrent.conf" <<EOF
+[Preferences]
+Downloads\\SavePath=$DATA_DIR/downloads/qbittorrent/completed
+Downloads\\TempPathEnabled=true
+Downloads\\TempPath=$DATA_DIR/downloads/qbittorrent/incomplete
+Downloads\\UseIncompleteExtension=true
+Downloads\\ExportDir=$DATA_DIR/downloads/qbittorrent/torrents
+WebUI\\Enabled=true
+WebUI\\Port=${QBIT_WEBUI_PORT:-8080}
+WebUI\\Username=$USERNAME
+WebUI\\Password_PBKDF2=$QBIT_PASSWORD_HASH
+EOF
+
+# Generate NZBGet config with directories and creds
+# Note: NZBGet needs a full config file. We'll generate a complete one based on the template.
+cat > "$CONFIG_DIR/nzbget/nzbget.conf" <<'EOF'
+# NZBGet Minimal Configuration
+MainDir=/data/downloads/nzbget
+DestDir=/data/downloads/nzbget/completed
+InterDir=/data/downloads/nzbget/intermediate
+NzbDir=/data/downloads/nzbget/nzb
+QueueDir=/data/downloads/nzbget/queue
+TempDir=/data/downloads/nzbget/tmp
+ControlUsername=USERNAME_PLACEHOLDER
+ControlPassword=PASSWORD_PLACEHOLDER
+AppendCategoryDir=no
+DirectRename=yes
+ArticleCache=200
+WriteBuffer=1024
+ContinuePartial=yes
+LogFile=/config/nzbget.log
+WriteLog=append
+RotateLog=3
+ErrorTarget=both
+WarningTarget=both
+InfoTarget=both
+DetailTarget=log
+DebugTarget=log
+EOF
+
+# Replace placeholders with actual credentials
+sed -i "s/USERNAME_PLACEHOLDER/$USERNAME/g" "$CONFIG_DIR/nzbget/nzbget.conf"
+sed -i "s/PASSWORD_PLACEHOLDER/$PASSWORD/g" "$CONFIG_DIR/nzbget/nzbget.conf"
+
+# Generate config.xml for Arr apps with Forms authentication pre-configured
+# This skips the first-run authentication wizard
+echo "Generating Arr app configs with authentication disabled..."
+
+cat > "$CONFIG_DIR/sonarr/config.xml" <<EOF
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>8989</Port>
+  <SslPort>9898</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <ApiKey>$(python3 -c "import secrets; print(secrets.token_hex(16))")</ApiKey>
+  <AuthenticationMethod>Basic</AuthenticationMethod>
+  <AuthenticationRequired>Enabled</AuthenticationRequired>
+  <BasicAuthUsername>$USERNAME</BasicAuthUsername>
+  <BasicAuthPassword>$PASSWORD</BasicAuthPassword>
+  <Branch>main</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>Sonarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+</Config>
+EOF
+
+cat > "$CONFIG_DIR/radarr/config.xml" <<EOF
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>7878</Port>
+  <SslPort>6868</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <ApiKey>$(python3 -c "import secrets; print(secrets.token_hex(16))")    </ApiKey>
+  <AuthenticationMethod>Basic</AuthenticationMethod>
+  <AuthenticationRequired>Enabled</AuthenticationRequired>
+  <BasicAuthUsername>$USERNAME</BasicAuthUsername>
+  <BasicAuthPassword>$PASSWORD</BasicAuthPassword>
+  <Branch>master</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>Radarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+</Config>
+EOF
+
+cat > "$CONFIG_DIR/lidarr/config.xml" <<EOF
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>8686</Port>
+  <SslPort>6868</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <ApiKey>$(python3 -c "import secrets; print(secrets.token_hex(16))")</ApiKey>
+  <AuthenticationMethod>Basic</AuthenticationMethod>
+  <AuthenticationRequired>Enabled</AuthenticationRequired>
+  <BasicAuthUsername>$USERNAME</BasicAuthUsername>
+  <BasicAuthPassword>$PASSWORD</BasicAuthPassword>
+  <Branch>master</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>Lidarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+</Config>
+EOF
+
+cat > "$CONFIG_DIR/prowlarr/config.xml" <<EOF
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>9696</Port>
+  <SslPort>6969</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>True</LaunchBrowser>
+  <ApiKey>$(python3 -c "import secrets; print(secrets.token_hex(16))")    </ApiKey>
+  <AuthenticationMethod>Basic</AuthenticationMethod>
+  <AuthenticationRequired>Enabled</AuthenticationRequired>
+  <BasicAuthUsername>$USERNAME</BasicAuthUsername>
+  <BasicAuthPassword>$PASSWORD</BasicAuthPassword>
+  <Branch>master</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>Prowlarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+</Config>
+EOF
+
+cat > "$CONFIG_DIR/bazarr/config.yaml" <<EOF
+# Bazarr configuration
+general:
+  ip: 0.0.0.0
+  port: 6767
+  base_url: ''
+auth:
+  type: none
+EOF
+
+# Generate root folder configs for Arr apps
+# These will be imported on first startup
+echo "Generating root folder configs for Arr apps..."
+
+cat > "$CONFIG_DIR/sonarr/rootfolders.xml" <<EOF
+<RootFolders>
+  <RootFolder>
+    <Path>$DATA_DIR/shows</Path>
+  </RootFolder>
+</RootFolders>
+EOF
+
+cat > "$CONFIG_DIR/radarr/rootfolders.xml" <<EOF
+<RootFolders>
+  <RootFolder>
+    <Path>$DATA_DIR/movies</Path>
+  </RootFolder>
+</RootFolders>
+EOF
+
+cat > "$CONFIG_DIR/lidarr/rootfolders.xml" <<EOF
+<RootFolders>
+  <RootFolder>
+    <Path>$DATA_DIR/music</Path>
+  </RootFolder>
+</RootFolders>
+EOF
+
+echo ""
+echo "Seed configs generated in $CONFIG_DIR."
+echo ""
+echo "To use these configs, run: bash init_configs.sh"
+echo "This will copy configs to service directories before first start."
+echo ""
+echo "qBittorrent and NZBGet also have optional read-only mounts in compose.yaml."

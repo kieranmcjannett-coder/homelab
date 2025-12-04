@@ -7,7 +7,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/Los_Angeles
+      - TZ=Australia/Brisbane
       - VERSION=docker
       - PLEX_CLAIM= #optional
     ports:
@@ -25,7 +25,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/Los_Angeles
+      - TZ=Australia/Brisbane
     volumes:
       - ./overseer/config:/config
       - /data:/data
@@ -39,7 +39,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/Los_Angeles
+      - TZ=Australia/Brisbane
     volumes:
       - ./tautulli:/config
     ports:

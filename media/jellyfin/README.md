@@ -75,7 +75,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/Los_Angeles
+      - TZ=Australia/Brisbane
       - JELLYFIN_PublishedServerUrl=http://10.0.0.101 #optional
     volumes:
       - ./config:/config
@@ -193,7 +193,38 @@ intel_gpu_top
 ```
 
 ## Configuring Jellyfin
-Open your web browser and navigate to your installed instance of Jellyfin using `http://IP:8096` and once there you can power through the initial setup by selecting your preferred language, then create an admin account with a secure username and password. Next, set up your media libraries by adding folders for movies, TV shows, or music. I tend to keep everything in my `/data` directory as shown in the media page on this repo.
+
+### Automated Setup (Recommended)
+The `configure_jellyfin.sh` script automates the entire initial setup process including:
+- Setting server language and metadata preferences
+- Creating the admin user with your credentials
+- Completing the startup wizard
+- Adding media libraries (TV Shows, Movies, Music)
+
+**Prerequisites:**
+- Credentials file must exist at `../. config/.credentials` with `USERNAME` and `PASSWORD` variables
+- Jellyfin container must be running
+- Data directories must exist: `/data/shows`, `/data/movies`, `/data/music`
+
+**Run the automated setup:**
+```bash
+cd media/jellyfin
+bash configure_jellyfin.sh
+```
+
+The script will:
+1. Wait for Jellyfin to be ready
+2. Configure server settings (language: en-US, country: AU)
+3. Get the default user created by the container
+4. Update it with your credentials from `.credentials`
+5. Complete the startup wizard
+6. Authenticate and obtain an access token
+7. Add three media libraries automatically
+
+**Note:** The script is idempotent - running it multiple times is safe. It will detect if the wizard is already complete and skip unnecessary steps.
+
+### Manual Setup
+If you prefer manual setup or need to customize settings, open your web browser and navigate to `http://IP:8096`. Power through the initial setup by selecting your preferred language, create an admin account with a secure username and password, and set up your media libraries by adding folders for movies, TV shows, or music. I keep everything in my `/data` directory as shown in the media page on this repo.
 
 ## Plugins
 Below are the plugins I'm currently testing. I'd recommend checking out [Awesome Jellyfin](https://github.com/awesome-jellyfin/awesome-jellyfin) for much more.

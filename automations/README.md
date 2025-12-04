@@ -206,8 +206,8 @@ services:
         ports:
             - 5678:5678
         environment:
-            - GENERIC_TIMEZONE=America/Los_Angeles
-            - TZ=America/Los_Angeles
+            - GENERIC_TIMEZONE=Australia/Brisbane
+            - TZ=Australia/Brisbane
             - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
             - N8N_RUNNERS_ENABLED=true
             - N8N_SECURE_COOKIE=false

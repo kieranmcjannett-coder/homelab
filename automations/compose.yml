@@ -13,7 +13,7 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - WEBHOOK_URL=https://n8n.hopki.net/
-      - GENERIC_TIMEZONE=America/Los_Angeles
+      - GENERIC_TIMEZONE=Australia/Brisbane
       - N8N_FORMDATA_FILE_SIZE_MAX=50000
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
     volumes:

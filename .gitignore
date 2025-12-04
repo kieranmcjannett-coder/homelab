@@ -1,0 +1,33 @@
+# Ignore local credentials and environment files
+media/.config/.credentials
+media/.env
+
+# Generated seed configs (created by setup_seed_configs.sh)
+media/.config/qbittorrent/qBittorrent.conf
+media/.config/nzbget/nzbget.conf
+media/.config/sonarr/config.xml
+media/.config/radarr/config.xml
+media/.config/lidarr/config.xml
+media/.config/prowlarr/config.xml
+media/.config/bazarr/config.yaml
+
+# Runtime service configurations (created by Docker on first run)
+# These contain API keys, database files, and runtime state
+media/sonarr/
+media/radarr/
+media/lidarr/
+media/prowlarr/
+media/bazarr/
+media/nzbget/
+media/qbittorrent/
+media/jellyfin/config/
+media/jellyfin/jellyseerr/
+media/jellyfin/jellystat/
+media/gluetun/
+media/backups/
+
+# Common noise
+**/.DS_Store
+**/Thumbs.db
+*.log
+*.pid
