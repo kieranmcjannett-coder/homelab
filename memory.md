@@ -22,8 +22,8 @@ Build a **fully automated, reproducible homelab deployment** that can be torn do
 ### Known Credentials & Endpoints
 | Service | URL | Auth Method |
 |---------|-----|-------------|
-| Jellyfin | http://localhost:8096 | User: kero66 / temppwd |
-| Jellyseerr | http://localhost:5055 | API Key (base64): `MTc2NDkxNjQ1NTAwNjgzZTRmZjUxLTI1MWUtNDhiOS1hODQ3LTM0NzRjZDJmNTY4YQ==` |
+| Jellyfin | http://localhost:8096 | User: kero66 / temppwd, API: `$JELLYFIN_API_KEY` in `.env` |
+| Jellyseerr | http://localhost:5055 | API: `$JELLYSEERR_API_KEY` in `.env` |
 | Sonarr | http://localhost:8989 | API Key in `/media/sonarr/config.xml` |
 | Radarr | http://localhost:7878 | API Key in `/media/radarr/config.xml` |
 | Lidarr | http://localhost:8686 | API Key in `/media/lidarr/config.xml` |
@@ -34,7 +34,7 @@ Build a **fully automated, reproducible homelab deployment** that can be torn do
 
 ### File Locations
 - **Credentials**: `/media/.config/.credentials` (username/password)
-- **Environment**: `/media/.env` (DATA_DIR, IPs, ports)
+- **Environment**: `/media/.env` (DATA_DIR, IPs, ports, API keys) - **gitignored**
 - **Arr API Keys**: In each service's `config.xml` under `<ApiKey>`
 - **Jellyfin plugins**: `/config/data/plugins/` inside container
 
@@ -136,8 +136,9 @@ sudo apt install -y jq sqlite3 unzip libxml2-utils && sudo snap install yq
 
 #### Jellyfin API Cheatsheet
 ```bash
+# Source .env first: source /path/to/media/.env
 BASE="http://localhost:8096"
-# Get API key from system.xml or create one in Dashboard > API Keys
+API_KEY="$JELLYFIN_API_KEY"  # From .env
 
 # List libraries
 curl "$BASE/Library/VirtualFolders" -H "X-Emby-Token: $API_KEY"
@@ -153,6 +154,15 @@ curl "$BASE/Plugins" -H "X-Emby-Token: $API_KEY"
 
 # Get system info
 curl "$BASE/System/Info" -H "X-Emby-Token: $API_KEY"
+
+# List available packages (from all configured repos)
+curl "$BASE/Packages" -H "X-Emby-Token: $API_KEY"
+
+# Install plugin by name (URL-encode spaces as %20)
+curl -X POST "$BASE/Packages/Installed/Home%20Screen%20Sections" -H "X-Emby-Token: $API_KEY"
+
+# Restart server (required after plugin install)
+curl -X POST "$BASE/System/Restart" -H "X-Emby-Token: $API_KEY"
 ```
 
 #### Arr API Cheatsheet (Sonarr/Radarr/Lidarr)
