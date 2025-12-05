@@ -1,5 +1,272 @@
 claude# Homelab Project Memory
 
+## Agent Instructions
+
+### Mission
+Build a **fully automated, reproducible homelab deployment** that can be torn down and recreated on any machine with minimal manual intervention.
+
+### Core Principles
+1. **Automate everything** - Never ask the user to manually configure something if it can be scripted
+2. **Use APIs and config files** - Prefer programmatic configuration over UI clicks
+3. **Idempotent scripts** - Scripts should be safe to run multiple times
+4. **Store credentials securely** - Use `.env` files (gitignored) and reference them in scripts
+5. **Document in memory.md** - Keep this file updated with current state, not just instructions
+
+### Behavior Guidelines
+- **Don't search for things you already know** - Check memory.md and conversation context first
+- **Execute, don't ask** - When a task is clear, do it rather than asking for confirmation
+- **Chain commands** - Use `&&` to run related commands together efficiently
+- **Update memory.md** - After significant changes, update the relevant sections
+- **Commit often** - After completing a logical unit of work, commit with descriptive message
+
+### Known Credentials & Endpoints
+| Service | URL | Auth Method |
+|---------|-----|-------------|
+| Jellyfin | http://localhost:8096 | User: kero66 / temppwd |
+| Jellyseerr | http://localhost:5055 | API Key (base64): `MTc2NDkxNjQ1NTAwNjgzZTRmZjUxLTI1MWUtNDhiOS1hODQ3LTM0NzRjZDJmNTY4YQ==` |
+| Sonarr | http://localhost:8989 | API Key in `/media/sonarr/config.xml` |
+| Radarr | http://localhost:7878 | API Key in `/media/radarr/config.xml` |
+| Lidarr | http://localhost:8686 | API Key in `/media/lidarr/config.xml` |
+| Prowlarr | http://localhost:9696 | API Key in `/media/prowlarr/config.xml` |
+| Bazarr | http://localhost:6767 | API Key in `/media/bazarr/config/config.yaml` |
+| qBittorrent | http://localhost:8080 | User: admin (check logs for temp password) |
+| Jellystat | http://localhost:3000 | Postgres: jellystat/jellystat |
+
+### File Locations
+- **Credentials**: `/media/.config/.credentials` (username/password)
+- **Environment**: `/media/.env` (DATA_DIR, IPs, ports)
+- **Arr API Keys**: In each service's `config.xml` under `<ApiKey>`
+- **Jellyfin plugins**: `/config/data/plugins/` inside container
+
+### Automation Scripts
+| Script | Purpose |
+|--------|---------|
+| `media/deploy.sh` | Full stack deployment |
+| `media/jellyfin/install_plugins.sh` | Install Jellyfin plugins |
+| `media/jellyfin/configure_jellyfin.sh` | Configure Jellyfin settings |
+| `media/jellyfin/configure_jellyseerr.sh` | Configure Jellyseerr integration |
+
+### Reference Documentation
+
+#### Jellyfin (v10.11.x)
+| Topic | URL |
+|-------|-----|
+| API Documentation | https://api.jellyfin.org/ |
+| Configuration Guide | https://jellyfin.org/docs/general/administration/configuration |
+| Hardware Acceleration | https://jellyfin.org/docs/general/administration/hardware-acceleration |
+| Networking | https://jellyfin.org/docs/general/networking/ |
+| Plugin Development | https://jellyfin.org/docs/general/server/plugins/ |
+| Transcoding | https://jellyfin.org/docs/general/administration/encoding |
+
+#### Arr Stack
+| Service | API Docs | Wiki |
+|---------|----------|------|
+| Sonarr | https://sonarr.tv/docs/api/ | https://wiki.servarr.com/sonarr |
+| Radarr | https://radarr.video/docs/api/ | https://wiki.servarr.com/radarr |
+| Lidarr | https://lidarr.audio/docs/api/ | https://wiki.servarr.com/lidarr |
+| Prowlarr | https://prowlarr.com/docs/api/ | https://wiki.servarr.com/prowlarr |
+| Bazarr | https://wiki.bazarr.media/ | https://www.bazarr.media/wiki/ |
+
+#### Servarr Wiki (Essential Reading)
+- **TRaSH Guides** (quality profiles, naming): https://trash-guides.info/
+- **Docker Guide**: https://wiki.servarr.com/docker-guide
+- **Hardlinks/Atomic Moves**: https://trash-guides.info/Hardlinks/Hardlinks-and-Instant-Moves/
+
+#### Jellyseerr
+| Topic | URL |
+|-------|-----|
+| API Reference | https://api-docs.jellyseerr.dev/ |
+| Configuration | https://docs.jellyseerr.dev/getting-started/installation |
+| Notifications | https://docs.jellyseerr.dev/using-jellyseerr/notifications |
+
+#### Docker/Compose
+| Topic | URL |
+|-------|-----|
+| Compose Spec | https://docs.docker.com/compose/compose-file/ |
+| Networking | https://docs.docker.com/network/ |
+| Healthchecks | https://docs.docker.com/compose/compose-file/05-services/#healthcheck |
+
+#### VPN (Gluetun)
+| Topic | URL |
+|-------|-----|
+| Gluetun Wiki | https://github.com/qdm12/gluetun-wiki |
+| AirVPN Setup | https://github.com/qdm12/gluetun-wiki/blob/main/setup/providers/airvpn.md |
+| Port Forwarding | https://github.com/qdm12/gluetun-wiki/blob/main/setup/options/port-forwarding.md |
+
+#### Plugin Repositories
+| Repo | Manifest URL |
+|------|--------------|
+| Jellyfin Official | https://repo.jellyfin.org/files/plugin/manifest.json |
+| n00bcodr (Enhanced, JS Injector) | https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json |
+| IAmParadox27 (Media Bar, File Transform) | https://www.iamparadox.dev/jellyfin/plugins/manifest.json |
+| Intro Skipper | https://intro-skipper.org/manifest.json |
+| LizardByte | https://app.lizardbyte.dev/jellyfin-plugin-repo/manifest.json |
+
+#### Useful Community Resources
+- **Awesome Jellyfin**: https://github.com/awesome-jellyfin/awesome-jellyfin
+- **LinuxServer.io Images**: https://docs.linuxserver.io/
+- **Servarr Discord**: Community support for arr apps
+
+### Host Dependencies
+Tools required on the host machine for automation scripts:
+
+| Tool | Purpose | Install (Fedora) | Install (Debian/Ubuntu) |
+|------|---------|------------------|-------------------------|
+| `jq` | JSON parsing in shell scripts | `dnf install jq` | `apt install jq` |
+| `yq` | YAML parsing in shell scripts | `dnf install yq` | `snap install yq` |
+| `sqlite3` | Query arr app databases directly | `dnf install sqlite` | `apt install sqlite3` |
+| `curl` | API calls, downloads | Pre-installed | Pre-installed |
+| `unzip` | Extract plugin archives | `dnf install unzip` | `apt install unzip` |
+| `docker` | Container runtime | `dnf install docker-ce` | `apt install docker-ce` |
+| `docker-compose` | Multi-container orchestration | Included with Docker | Included with Docker |
+| `grep` | Text search (use `-P` for PCRE) | Pre-installed | Pre-installed |
+| `xmllint` | Parse XML config files | `dnf install libxml2` | `apt install libxml2-utils` |
+
+**Quick install (Fedora):**
+```bash
+sudo dnf install -y jq yq sqlite unzip libxml2
+```
+
+**Quick install (Debian/Ubuntu):**
+```bash
+sudo apt install -y jq sqlite3 unzip libxml2-utils && sudo snap install yq
+```
+
+### Common API Endpoints
+
+#### Jellyfin API Cheatsheet
+```bash
+BASE="http://localhost:8096"
+# Get API key from system.xml or create one in Dashboard > API Keys
+
+# List libraries
+curl "$BASE/Library/VirtualFolders" -H "X-Emby-Token: $API_KEY"
+
+# Get users
+curl "$BASE/Users" -H "X-Emby-Token: $API_KEY"
+
+# Trigger library scan
+curl -X POST "$BASE/Library/Refresh" -H "X-Emby-Token: $API_KEY"
+
+# Get installed plugins
+curl "$BASE/Plugins" -H "X-Emby-Token: $API_KEY"
+
+# Get system info
+curl "$BASE/System/Info" -H "X-Emby-Token: $API_KEY"
+```
+
+#### Arr API Cheatsheet (Sonarr/Radarr/Lidarr)
+```bash
+# API key from config.xml: grep -oP '<ApiKey>\K[^<]+' config.xml
+BASE="http://localhost:8989"  # Sonarr (8989), Radarr (7878), Lidarr (8686)
+API_KEY="your-api-key"
+
+# Get root folders
+curl "$BASE/api/v3/rootfolder" -H "X-Api-Key: $API_KEY"
+
+# Get quality profiles
+curl "$BASE/api/v3/qualityprofile" -H "X-Api-Key: $API_KEY"
+
+# Get download clients
+curl "$BASE/api/v3/downloadclient" -H "X-Api-Key: $API_KEY"
+
+# Get system status
+curl "$BASE/api/v3/system/status" -H "X-Api-Key: $API_KEY"
+
+# Test notification (Jellyfin connection)
+curl "$BASE/api/v3/notification/test" -H "X-Api-Key: $API_KEY"
+```
+
+#### Prowlarr API Cheatsheet
+```bash
+BASE="http://localhost:9696"
+API_KEY="your-api-key"
+
+# Get indexers
+curl "$BASE/api/v1/indexer" -H "X-Api-Key: $API_KEY"
+
+# Get applications (Sonarr, Radarr, etc.)
+curl "$BASE/api/v1/applications" -H "X-Api-Key: $API_KEY"
+
+# Sync indexers to apps
+curl -X POST "$BASE/api/v1/applications/sync" -H "X-Api-Key: $API_KEY"
+```
+
+#### Jellyseerr API Cheatsheet
+```bash
+BASE="http://localhost:5055"
+API_KEY="your-api-key"  # Base64 decode the stored key
+
+# Get settings
+curl "$BASE/api/v1/settings/main" -H "X-Api-Key: $API_KEY"
+
+# Get Jellyfin settings
+curl "$BASE/api/v1/settings/jellyfin" -H "X-Api-Key: $API_KEY"
+
+# Get requests
+curl "$BASE/api/v1/request" -H "X-Api-Key: $API_KEY"
+```
+
+### Common Errors & Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `connection refused` on arr API | Service not ready | Wait for healthcheck, check `docker logs <service>` |
+| `401 Unauthorized` | Wrong/missing API key | Get key from `config.xml` or service UI |
+| `database is locked` (SQLite) | Service is running | Stop service before direct DB queries |
+| `ECONNREFUSED 172.39.0.x` | Container not on network | Check `docker network inspect servarrnetwork` |
+| Prowlarr sync fails | App API key changed | Re-add application in Prowlarr UI or API |
+| Jellyfin plugin not loading | Wrong version/permissions | Check `docker logs jellyfin`, ensure `chown abc:abc` |
+| qBittorrent 403 Forbidden | CSRF protection | Use `Referer` header or disable CSRF in settings |
+| Bazarr can't reach Sonarr | Using IP instead of hostname | Use container name `sonarr` not `172.39.0.3` |
+| Transcoding fails | Missing codecs/hardware | Check `ffmpeg -codecs`, enable hardware accel |
+| Subtitles not burning | Wrong transcode setting | Set "Burn subtitles" to "All complex formats" |
+
+### Shell Script Patterns
+
+#### Extract API key from config.xml
+```bash
+get_api_key() {
+    local config_file="$1"
+    grep -oP '<ApiKey>\K[^<]+' "$config_file"
+}
+API_KEY=$(get_api_key "/path/to/config.xml")
+```
+
+#### Wait for service to be ready
+```bash
+wait_for_service() {
+    local url="$1"
+    local max_attempts="${2:-30}"
+    local attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if curl -sf "$url" > /dev/null 2>&1; then
+            return 0
+        fi
+        echo "Waiting for $url... ($attempt/$max_attempts)"
+        sleep 2
+        ((attempt++))
+    done
+    return 1
+}
+wait_for_service "http://localhost:8989/api/v3/system/status"
+```
+
+#### Safe JSON POST with curl
+```bash
+api_post() {
+    local url="$1"
+    local data="$2"
+    local api_key="$3"
+    curl -sf -X POST "$url" \
+        -H "Content-Type: application/json" \
+        -H "X-Api-Key: $api_key" \
+        -d "$data"
+}
+```
+
+---
+
 ## Project Overview
 - **Repository**: kieranmcjannett-coder/homelab (fork of TechHutTV/homelab)
 - **Current Branch**: main
@@ -109,6 +376,42 @@ Services include: automations, media, monitoring, surveillance, proxy, cloud, et
 - **Playback progress**: May not save reliably (investigate `Sessions/Playing/Stopped` errors in logs)
 - **Bazarr IPs**: Use container names (`radarr`, `sonarr`) not hardcoded IPs in config.yaml
 - **Plugin UI mods**: Require `web-index.html` mounted as volume (done in compose.yaml)
+- **Subtitle burn-in**: Set "Burn subtitles" to "All complex formats" in user settings for ASS/SSA subs when transcoding
+
+## Jellyfin Plugins & Extensions Tracker
+
+### Currently Installed ✅
+| Plugin | Version | Purpose | Notes |
+|--------|---------|---------|-------|
+| Jellyfin Enhanced | 9.6.2.0 | Quality tags, Jellyseerr search, .arr links, subtitle styling | Press `?` to open settings panel |
+| File Transformation | 2.5.1.0 | Allows plugins to modify web files | Required by Media Bar |
+| Media Bar | 2.4.4.0 | Netflix-style featured content slider | Auto-rotates featured content on home |
+
+### Not Needed ❌
+| Plugin | Reason |
+|--------|--------|
+| KefinTweaks | Features already in Jellyfin Enhanced |
+| JS Injector | Only needed for KefinTweaks |
+| Custom Tabs | Only needed for KefinTweaks Watchlist |
+| Skin Manager | Themes caused issues - skip for now |
+
+### Reviewed - Maybe Later 📋
+| Plugin | Purpose | Repo | Notes |
+|--------|---------|------|-------|
+| intro-skipper | Auto-detect and skip intros/outros | [intro-skipper/intro-skipper](https://github.com/intro-skipper/intro-skipper) | Check if chapters already work |
+| jellyscrub | Mouse-over video scrubbing previews | [nicknsy/jellyscrub](https://github.com/nicknsy/jellyscrub) | Native trickplay in 10.9+, may be redundant |
+| Shokofin | Shoko anime management integration | [ShokoAnime/Shokofin](https://github.com/ShokoAnime/Shokofin) | For advanced anime library management |
+| jellyfin-ani-sync | Sync anime progress to AniList | [vosmiic/jellyfin-ani-sync](https://github.com/vosmiic/jellyfin-ani-sync) | If using AniList |
+
+### Reviewed - Avoid ❌
+| Plugin | Reason |
+|--------|--------|
+| Themes (all) | Broke stuff last time - skip for now |
+
+### Reference Lists
+- **Awesome Jellyfin**: https://github.com/awesome-jellyfin/awesome-jellyfin
+- **Themes List**: https://github.com/awesome-jellyfin/awesome-jellyfin/blob/main/THEMES.md
+- **IAmParadox27 Plugin Repo**: https://www.iamparadox.dev/jellyfin/plugins/manifest.json
 
 ## Setup Steps (Required for New Machine Deployment)
 
